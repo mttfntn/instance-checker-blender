@@ -67,13 +67,23 @@ def _attr_array(attr):
     return arr
 
 
+def _int_attribute(mesh, name, size):
+    """Read an internal int attribute in one call (much faster than going
+    through mesh.loops / mesh.edges). Meshes without faces or edges don't
+    have the attribute at all: return an empty array then."""
+    arr = np.empty(size, dtype=np.int32)
+    attr = mesh.attributes.get(name)
+    if attr is None:
+        return arr[:0]
+    attr.data.foreach_get("value", arr)
+    return arr
+
+
 def _topology_arrays(mesh):
-    lv = np.empty(len(mesh.loops), dtype=np.int32)
-    mesh.loops.foreach_get("vertex_index", lv)
+    lv = _int_attribute(mesh, ".corner_vert", len(mesh.loops))
     lt = np.empty(len(mesh.polygons), dtype=np.int32)
     mesh.polygons.foreach_get("loop_total", lt)
-    ev = np.empty(len(mesh.edges) * 2, dtype=np.int32)
-    mesh.edges.foreach_get("vertices", ev)
+    ev = _int_attribute(mesh, ".edge_verts", len(mesh.edges) * 2)
     return lv, lt, ev
 
 
@@ -115,15 +125,19 @@ def attribute_signature(mesh):
 
 
 def vertex_group_signature(mesh):
-    """Hash of the per-vertex group weights stored on the mesh (index based)."""
-    h = hashlib.sha1()
-    found = False
-    for v in mesh.vertices:
-        for g in v.groups:
-            found = True
-            h.update(np.array([v.index, g.group], dtype=np.int32).tobytes())
-            h.update(np.float32(round(g.weight, 5)).tobytes())
-    return h.hexdigest() if found else ""
+    """Hash of the per-vertex group weights stored on the mesh (index based).
+
+    Weights are rounded to 5 decimals. Returns "" when no vertex has a weight.
+    """
+    rows = [(v.index, g.group, round(g.weight, 5))
+            for v in mesh.vertices for g in v.groups]
+    if not rows:
+        return ""
+    ids = np.array([r[:2] for r in rows], dtype=np.int32)
+    weights = np.array([r[2] for r in rows], dtype=np.float32)
+    h = hashlib.sha1(ids.tobytes())
+    h.update(weights.tobytes())
+    return h.hexdigest()
 
 
 def mesh_bytes(mesh):
