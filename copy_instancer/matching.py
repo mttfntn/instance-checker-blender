@@ -19,7 +19,7 @@ import numpy as np
 # Low level array access
 # --------------------------------------------------------------------------
 
-_INT_TYPES = {"INT", "INT8", "INT32_2D", "INT16_2D", "SHORT2"}
+_INT_TYPES = {"INT", "INT8", "INT32_2D", "INT16_2D"}
 _BOOL_TYPES = {"BOOLEAN"}
 _SKIP_TYPES = {"STRING"}
 
@@ -27,7 +27,7 @@ _SKIP_TYPES = {"STRING"}
 _TYPE_BYTES = {
     "FLOAT": 4, "INT": 4, "INT8": 1, "BOOLEAN": 1, "FLOAT2": 8,
     "FLOAT_VECTOR": 12, "FLOAT_COLOR": 16, "BYTE_COLOR": 4, "QUATERNION": 16,
-    "INT32_2D": 8, "INT16_2D": 4, "SHORT2": 4, "FLOAT4X4": 64, "STRING": 1,
+    "INT32_2D": 8, "INT16_2D": 4, "FLOAT4X4": 64, "STRING": 1,
 }
 
 
@@ -46,11 +46,8 @@ def _attr_array(attr):
     if n == 0:
         return np.zeros(0)
     first = data[0]
-    for key in ("vector", "color", "value"):
-        if hasattr(first, key):
-            break
-    else:
-        return None
+    # Every non-string type in Blender 5.3 exposes one of these three.
+    key = next(k for k in ("vector", "color", "value") if hasattr(first, k))
     if attr.data_type == "FLOAT4X4":
         comp = 16
     else:
@@ -105,9 +102,10 @@ def attribute_signature(mesh):
         name = attr.name
         if _is_internal_topology_attr(name):
             continue
-        if name.startswith(".select") or name.startswith(".hide") or name.startswith(".uv_select"):
+        if name.startswith((".select", ".hide", ".uv_select")):
             continue
-        if name.startswith(".pin") or name.startswith(".vs.") or name.startswith(".es.") or name.startswith(".pn."):
+        # UV pin (.pn.<uv>) and UV selection saved by Blender 4.x (.vs./.es.<uv>)
+        if name.startswith((".pn.", ".vs.", ".es.")):
             continue
         arr = _attr_array(attr)
         if arr is None:
@@ -133,7 +131,6 @@ def mesh_bytes(mesh):
     total = 4 * (len(mesh.polygons) + 1)  # face offsets
     for attr in mesh.attributes:
         total += len(attr.data) * _TYPE_BYTES.get(attr.data_type, 4)
-    # vertex groups (MDeformWeight is 8 bytes, MDeformVert 16 bytes)
     return total
 
 
@@ -276,7 +273,7 @@ def _eligible(obj):
     return None
 
 
-def find_groups(objects, tol=1e-4, allow_transform=True, include_instanced=True):
+def find_groups(objects, tol=1e-4, allow_transform=True):
     """Group objects whose meshes are copies of each other."""
     skipped = []
     meshes = {}  # mesh pointer -> list of objects
@@ -296,7 +293,7 @@ def find_groups(objects, tol=1e-4, allow_transform=True, include_instanced=True)
 
     groups = []
     for bucket in buckets.values():
-        if len(bucket) == 1 and (len(bucket[0]) == 1 or not include_instanced):
+        if len(bucket) == 1 and len(bucket[0]) == 1:
             continue
         infos = []
         for objs in bucket:
@@ -330,8 +327,6 @@ def find_groups(objects, tol=1e-4, allow_transform=True, include_instanced=True)
             members = [Member(obj=o, mesh=info.mesh, matrix=M)
                        for info, M in entries for o in info.objects]
             if len(members) < 2:
-                continue
-            if len(entries) == 1 and not include_instanced:
                 continue
             members.sort(key=lambda m: m.obj.name)
             groups.append(Group(reference=ref.mesh, members=members))

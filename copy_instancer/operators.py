@@ -54,8 +54,7 @@ def scan(context, objects=None):
     if objects is None:
         objects = _scan_objects(context, s)
     result = matching.find_groups(objects, tol=s.tolerance,
-                                  allow_transform=s.match_transforms,
-                                  include_instanced=True)
+                                  allow_transform=s.match_transforms)
     store_result(s, result)
     return result
 
@@ -92,7 +91,7 @@ def _same_result(a, b, tol):
 
 
 def _has_transform_drivers(obj):
-    if obj.constraints and len(obj.constraints):
+    if len(obj.constraints):
         return True
     ad = obj.animation_data
     return bool(ad and (ad.action or ad.drivers))
@@ -173,7 +172,7 @@ def instance_group(context, group, verify=True, tol=1e-4, remove_orphans=True):
             sl.link = "DATA"
         obj.data = backup["mesh"]
         obj.matrix_world = backup["matrix"]
-        for i, (link, mat) in enumerate(backup["slots"]):
+        for i, (link, _mat) in enumerate(backup["slots"]):
             if i < len(obj.material_slots):
                 obj.material_slots[i].link = link
         view_layer.update()
