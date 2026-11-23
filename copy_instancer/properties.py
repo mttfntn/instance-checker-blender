@@ -59,7 +59,7 @@ class CI_Settings(bpy.types.PropertyGroup):
         default="SCENE",
     )
     tolerance: FloatProperty(
-        name="Tolerance", default=1e-4, min=0.0, soft_max=0.01,
+        name="Tolerance", default=1e-4, min=0.0, max=0.01,
         precision=6, step=0.001,
         description="Maximum vertex distance (local units) for two shapes to count as equal",
     )
