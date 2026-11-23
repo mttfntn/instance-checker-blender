@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+dist/
+# local-only setup (MCP, assistant, editor)
+.mcp.json
+.claude/
+.vscode/
+.idea/
+.DS_Store
