@@ -1,3 +1,5 @@
+import sys
+
 import bpy
 import numpy as np
 from bpy.props import EnumProperty, IntProperty
@@ -381,6 +383,16 @@ class IC_OT_make_copies(_GroupIndexMixin, bpy.types.Operator):
         return {"FINISHED"}
 
 
+def _print_safely(text):
+    """Print, replacing characters the console can't encode.
+
+    A redirected Windows console uses cp1252; mesh names such as '名前'
+    made print() raise UnicodeEncodeError there.
+    """
+    enc = getattr(sys.stdout, "encoding", None) or "utf-8"
+    print(text.encode(enc, "replace").decode(enc, "replace"))
+
+
 class IC_OT_report(bpy.types.Operator):
     bl_idname = "instance_checker.report"
     bl_label = "Print Report"
@@ -396,8 +408,7 @@ class IC_OT_report(bpy.types.Operator):
                 f"{g.faces:8d} {matching.format_bytes(g.mesh_bytes):>11} "
                 f"{matching.format_bytes(g.saved_bytes):>11}  {g.status}")
         lines.append(f"Total potential saving: {matching.format_bytes(s.total_saved)}")
-        text = "\n".join(lines)
-        print(text)
+        _print_safely("\n".join(lines))
         self.report({"INFO"}, f"Report printed to console. Total saving "
                               f"{matching.format_bytes(s.total_saved)}")
         return {"FINISHED"}
