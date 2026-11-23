@@ -1,3 +1,12 @@
+"""Operators (bpy.ops.instance_checker.*) and the helpers they use.
+
+scan()           runs matching.find_groups() and stores the result in the scene
+instance_group() makes a group share its reference mesh, checks the evaluated
+                 result (Verify Result) and reverts objects that changed
+make_copies()    gives objects their own mesh again
+The helpers can also be called from scripts; see README.md.
+"""
+
 import sys
 
 import bpy
@@ -13,10 +22,12 @@ from . import matching
 
 
 def settings(context):
+    """The add-on's settings for the context's scene."""
     return context.scene.instance_checker
 
 
 def _scan_objects(context, s):
+    """Objects to scan, depending on the Scope option."""
     if s.scope == "SELECTED":
         return list(context.selected_objects)
     return list(context.scene.objects)
@@ -52,6 +63,7 @@ def store_result(s, result):
 
 
 def scan(context, objects=None):
+    """Find copies among objects (default: the Scope) and store the groups."""
     s = settings(context)
     if objects is None:
         objects = _scan_objects(context, s)
@@ -62,6 +74,7 @@ def scan(context, objects=None):
 
 
 def _listed_objects(s):
+    """Every object currently in the scan list, used to re-scan after a change."""
     objs = {}
     for g in s.groups:
         for m in g.members:
@@ -71,6 +84,7 @@ def _listed_objects(s):
 
 
 def _eval_world_co(obj, depsgraph):
+    """World-space vertex positions of the object with its modifiers applied."""
     ev = obj.evaluated_get(depsgraph)
     mesh = ev.to_mesh()
     try:
@@ -84,6 +98,7 @@ def _eval_world_co(obj, depsgraph):
 
 
 def _same_result(a, b, tol):
+    """True if two evaluated results match within 10x tol (or float noise)."""
     if a.shape != b.shape:
         return False
     if a.size == 0:
@@ -93,6 +108,7 @@ def _same_result(a, b, tol):
 
 
 def _has_transform_drivers(obj):
+    """True if constraints or animation could overwrite a changed transform."""
     if len(obj.constraints):
         return True
     ad = obj.animation_data
@@ -245,6 +261,9 @@ def make_copies(objects):
 # --------------------------------------------------------------------------
 
 
+# Operator classes use # comments: Blender shows class docstrings as tooltips.
+
+# Scan the scope and fill the list.
 class IC_OT_scan(bpy.types.Operator):
     bl_idname = "instance_checker.scan"
     bl_label = "Scan for Copies"
@@ -264,6 +283,7 @@ class IC_OT_scan(bpy.types.Operator):
         return {"FINISHED"}
 
 
+# Shared by operators that act on one group: index -1 means the active row.
 class _GroupIndexMixin:
     index: IntProperty(default=-1, options={"SKIP_SAVE"})
 
@@ -275,6 +295,7 @@ class _GroupIndexMixin:
         return None
 
 
+# Select the objects of a group.
 class IC_OT_select_group(_GroupIndexMixin, bpy.types.Operator):
     bl_idname = "instance_checker.select_group"
     bl_label = "Select Group"
@@ -298,12 +319,14 @@ class IC_OT_select_group(_GroupIndexMixin, bpy.types.Operator):
 
 
 def _report_failures(op, failed):
+    """Show up to 10 'not instanced' reasons as warnings."""
     for obj, reason in failed[:10]:
         op.report({"WARNING"}, f"{obj.name}: {reason}" if obj else reason)
     if len(failed) > 10:
         op.report({"WARNING"}, f"... and {len(failed) - 10} more")
 
 
+# Instance one group, then re-scan the listed objects.
 class IC_OT_instance_group(_GroupIndexMixin, bpy.types.Operator):
     bl_idname = "instance_checker.instance_group"
     bl_label = "Instance Group"
@@ -325,6 +348,7 @@ class IC_OT_instance_group(_GroupIndexMixin, bpy.types.Operator):
         return {"FINISHED"}
 
 
+# Instance every group that still has copies, then re-scan.
 class IC_OT_instance_all(bpy.types.Operator):
     bl_idname = "instance_checker.instance_all"
     bl_label = "Instance All"
@@ -351,6 +375,7 @@ class IC_OT_instance_all(bpy.types.Operator):
         return {"FINISHED"}
 
 
+# Give the selected objects, or the active group's, their own meshes.
 class IC_OT_make_copies(_GroupIndexMixin, bpy.types.Operator):
     bl_idname = "instance_checker.make_copies"
     bl_label = "Make Copies"
@@ -393,6 +418,7 @@ def _print_safely(text):
     print(text.encode(enc, "replace").decode(enc, "replace"))
 
 
+# Print the memory table of the list to the system console.
 class IC_OT_report(bpy.types.Operator):
     bl_idname = "instance_checker.report"
     bl_label = "Print Report"

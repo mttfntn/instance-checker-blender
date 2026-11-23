@@ -1,13 +1,19 @@
-"""Find mesh objects that are copies of each other.
+"""Find mesh objects that are copies of each other (no bpy.ops, no UI).
 
 Two meshes are considered copies when they have
-  * identical topology (same vertex order, edges, faces, corners),
+  * identical topology: same vertex, edge, face and corner order, and the
+    same number of material slots (see topology_key),
   * the same shape within a tolerance, either directly or up to a
-    rotation + uniform scale + translation ("applied transform" copies),
-  * identical non-positional data (UVs, colors, creases, material indices,
-    sharp flags, vertex-group weights...).
+    rotation + uniform scale + translation ("applied transform" copies;
+    mirrored copies are not matched),
+  * the same non-positional data: every mesh attribute except positions,
+    topology and editor-only selection/hide/UV-pin state (so UVs, colors,
+    creases, material indices, sharp flags...), and the same vertex-group
+    weights.
 
-Nothing in here touches the scene; it only reads data and returns groups.
+find_groups() is the entry point. It only reads data and returns Group
+objects; operators.py turns them into scene properties and does the
+instancing. Nothing in here changes the scene.
 """
 
 import hashlib
@@ -32,6 +38,7 @@ _TYPE_BYTES = {
 
 
 def mesh_positions(mesh):
+    """Vertex positions in mesh (local) space as an (N, 3) float64 array."""
     co = np.empty(len(mesh.vertices) * 3, dtype=np.float32)
     mesh.vertices.foreach_get("co", co)
     return co.reshape(-1, 3).astype(np.float64)
@@ -80,6 +87,7 @@ def _int_attribute(mesh, name, size):
 
 
 def _topology_arrays(mesh):
+    """Corner vertex indices, face sizes and edge vertex pairs."""
     lv = _int_attribute(mesh, ".corner_vert", len(mesh.loops))
     lt = np.empty(len(mesh.polygons), dtype=np.int32)
     mesh.polygons.foreach_get("loop_total", lt)
@@ -88,7 +96,11 @@ def _topology_arrays(mesh):
 
 
 def topology_key(mesh):
-    """Hashable key: equal keys <=> identical connectivity (same ordering)."""
+    """Hashable key used to bucket meshes before any shape comparison.
+
+    Equal keys mean identical connectivity in the same order (corners, face
+    sizes, edges) and the same number of material slots.
+    """
     lv, lt, ev = _topology_arrays(mesh)
     h = hashlib.sha1()
     for a in (lv, lt, ev):
@@ -141,7 +153,11 @@ def vertex_group_signature(mesh):
 
 
 def mesh_bytes(mesh):
-    """Rough in-memory size of a mesh's geometry data, in bytes."""
+    """Rough in-memory size of a mesh's geometry data, in bytes.
+
+    Sums every attribute (positions, topology, UVs...) plus face offsets.
+    Vertex-group weights and Blender's runtime caches are not counted.
+    """
     total = 4 * (len(mesh.polygons) + 1)  # face offsets
     for attr in mesh.attributes:
         total += len(attr.data) * _TYPE_BYTES.get(attr.data_type, 4)
@@ -149,6 +165,7 @@ def mesh_bytes(mesh):
 
 
 def _attrs_equal(a, b, tol):
+    """Compare two attribute_signature() dicts: floats within tol, rest exact."""
     if a.keys() != b.keys():
         return False
     for name, (dom_a, type_a, arr_a) in a.items():
@@ -199,6 +216,7 @@ def similarity_transform(src, dst):
 
 
 def _effective_tol(co, tol):
+    """The tolerance, raised for large coordinates to float32 precision."""
     if len(co) == 0:
         return tol
     extent = float(np.max(np.abs(co)))
@@ -233,6 +251,7 @@ def match_shape(ref_co, co, tol, allow_transform):
 
 @dataclass
 class MeshInfo:
+    """Data read once per distinct mesh while grouping."""
     mesh: object
     co: np.ndarray
     attrs: dict
@@ -242,6 +261,7 @@ class MeshInfo:
 
 @dataclass
 class Member:
+    """One object in a group, with the transform from the reference mesh."""
     obj: object
     mesh: object
     matrix: np.ndarray  # ref-local -> member-local (identity for plain copies)
@@ -253,6 +273,7 @@ class Member:
 
 @dataclass
 class Group:
+    """Objects whose meshes are copies of the reference mesh."""
     reference: object  # bpy.types.Mesh
     members: list      # list[Member]
 
@@ -271,11 +292,13 @@ class Group:
 
 @dataclass
 class ScanResult:
+    """What find_groups() returns: the groups and the objects it skipped."""
     groups: list
     skipped: list  # (object, reason)
 
 
 def _eligible(obj):
+    """Return why an object can't take part, or None if it can."""
     if obj.type != "MESH" or obj.data is None:
         return "not a mesh"
     if obj.library is not None or obj.override_library is not None:
@@ -288,7 +311,17 @@ def _eligible(obj):
 
 
 def find_groups(objects, tol=1e-4, allow_transform=True):
-    """Group objects whose meshes are copies of each other."""
+    """Group objects whose meshes are copies of each other.
+
+    1. Objects that already share a mesh count once per mesh.
+    2. Meshes are bucketed by topology_key().
+    3. Inside a bucket, each mesh joins the first cluster whose reference has
+       equal vertex groups and attributes and a matching shape
+       (match_shape); otherwise it starts a new cluster. The most-used mesh
+       (then the first by name) is tried as a reference first.
+    Clusters with at least two objects become groups, sorted by the memory
+    instancing would save, largest first.
+    """
     skipped = []
     meshes = {}  # mesh pointer -> list of objects
     for obj in objects:
@@ -356,6 +389,7 @@ def group_savings(group):
 
 
 def format_bytes(n):
+    """Human-readable size: 512 B, 1.50 KB, 2.00 MB..."""
     for unit in ("B", "KB", "MB", "GB"):
         if abs(n) < 1024 or unit == "GB":
             return f"{n:.0f} {unit}" if unit == "B" else f"{n:.2f} {unit}"

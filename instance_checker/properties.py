@@ -1,3 +1,9 @@
+"""Scene settings and the scan list, stored per scene as scene.instance_checker.
+
+The scan list (IC_Group / IC_Member) is filled by operators.store_result() and
+read by the panel and by the instancing operators.
+"""
+
 import bpy
 from bpy.props import (BoolProperty, CollectionProperty, EnumProperty,
                        FloatProperty, FloatVectorProperty, IntProperty,
@@ -9,10 +15,13 @@ from bpy.props import (BoolProperty, CollectionProperty, EnumProperty,
 
 
 def _local(collection, name):
+    """Look up a data-block by name, preferring local data over linked data."""
     item = collection.get((name, None)) if name else None
     return item if item is not None else (collection.get(name) if name else None)
 
 
+# One object of a group. matrix maps the reference mesh into this object's
+# own mesh space (identity for plain copies).
 class IC_Member(bpy.types.PropertyGroup):
     obj_name: StringProperty()
     mesh_name: StringProperty()
@@ -30,6 +39,8 @@ class IC_Member(bpy.types.PropertyGroup):
     needs_transform: BoolProperty()
 
 
+# One group of copies: the reference mesh every member will share, and
+# numbers for the memory report.
 class IC_Group(bpy.types.PropertyGroup):
     reference_name: StringProperty()
 
@@ -51,6 +62,7 @@ class IC_Group(bpy.types.PropertyGroup):
     transformed: IntProperty(description="Members that need a transform change")
 
 
+# The options shown in the panel plus the last scan list and message.
 class IC_Settings(bpy.types.PropertyGroup):
     scope: EnumProperty(
         name="Scope",

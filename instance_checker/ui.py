@@ -1,3 +1,9 @@
+"""The sidebar panel (3D Viewport > N > Instances) and its group list.
+
+Drawing only reads scene.instance_checker; every change goes through the
+operators in operators.py.
+"""
+
 import bpy
 
 from .matching import format_bytes
@@ -5,6 +11,7 @@ from .matching import format_bytes
 _STATUS_ICON = {"COPIES": "DUPLICATE", "PARTIAL": "MOD_INSTANCE", "INSTANCED": "LINKED"}
 
 
+# One row per group: status icon, name, objects/meshes and the saving.
 class IC_UL_groups(bpy.types.UIList):
     bl_idname = "IC_UL_groups"
 
@@ -18,6 +25,7 @@ class IC_UL_groups(bpy.types.UIList):
             sub.label(text=format_bytes(item.saved_bytes))
 
 
+# Options, the list, the actions and the memory report.
 class IC_PT_panel(bpy.types.Panel):
     bl_idname = "IC_PT_panel"
     bl_label = "Instance Checker"
