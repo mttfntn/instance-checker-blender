@@ -116,6 +116,7 @@ def instance_group(context, group, verify=True, tol=1e-4, remove_orphans=True):
     for m in group.members:
         obj = m.obj
         if obj is None:
+            failed.append((None, f"'{m.obj_name}' was renamed or deleted since the scan"))
             continue
         if obj.data == ref:
             continue
@@ -124,6 +125,13 @@ def instance_group(context, group, verify=True, tol=1e-4, remove_orphans=True):
             continue
         if m.needs_transform and _has_transform_drivers(obj):
             failed.append((obj, "applied transform but object is animated/constrained"))
+            continue
+        # Blender doesn't evaluate objects in excluded collections, so their
+        # modifier result can't be checked after the transform is compensated.
+        if (verify and m.needs_transform and len(obj.modifiers)
+                and not obj.evaluated_get(depsgraph).is_evaluated):
+            failed.append((obj, "applied transform and modifiers, but not evaluated "
+                                "(excluded collection?): can't verify, kept as copy"))
             continue
         todo.append(m)
 
@@ -289,7 +297,7 @@ class CI_OT_select_group(_GroupIndexMixin, bpy.types.Operator):
 
 def _report_failures(op, failed):
     for obj, reason in failed[:10]:
-        op.report({"WARNING"}, f"{obj.name if obj else '?'}: {reason}")
+        op.report({"WARNING"}, f"{obj.name}: {reason}" if obj else reason)
     if len(failed) > 10:
         op.report({"WARNING"}, f"... and {len(failed) - 10} more")
 
