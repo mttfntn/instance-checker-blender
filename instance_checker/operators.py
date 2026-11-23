@@ -11,7 +11,7 @@ from . import matching
 
 
 def settings(context):
-    return context.scene.copy_instancer
+    return context.scene.instance_checker
 
 
 def _scan_objects(context, s):
@@ -243,8 +243,8 @@ def make_copies(objects):
 # --------------------------------------------------------------------------
 
 
-class CI_OT_scan(bpy.types.Operator):
-    bl_idname = "copy_instancer.scan"
+class IC_OT_scan(bpy.types.Operator):
+    bl_idname = "instance_checker.scan"
     bl_label = "Scan for Copies"
     bl_description = "Find mesh objects that share the same topology and shape"
     bl_options = {"REGISTER", "UNDO"}
@@ -273,8 +273,8 @@ class _GroupIndexMixin:
         return None
 
 
-class CI_OT_select_group(_GroupIndexMixin, bpy.types.Operator):
-    bl_idname = "copy_instancer.select_group"
+class IC_OT_select_group(_GroupIndexMixin, bpy.types.Operator):
+    bl_idname = "instance_checker.select_group"
     bl_label = "Select Group"
     bl_description = "Select all objects of the group"
     bl_options = {"REGISTER", "UNDO"}
@@ -302,8 +302,8 @@ def _report_failures(op, failed):
         op.report({"WARNING"}, f"... and {len(failed) - 10} more")
 
 
-class CI_OT_instance_group(_GroupIndexMixin, bpy.types.Operator):
-    bl_idname = "copy_instancer.instance_group"
+class IC_OT_instance_group(_GroupIndexMixin, bpy.types.Operator):
+    bl_idname = "instance_checker.instance_group"
     bl_label = "Instance Group"
     bl_description = ("Make all objects of the group share one mesh (linked data). "
                       "Modifiers, materials and transforms are kept")
@@ -323,8 +323,8 @@ class CI_OT_instance_group(_GroupIndexMixin, bpy.types.Operator):
         return {"FINISHED"}
 
 
-class CI_OT_instance_all(bpy.types.Operator):
-    bl_idname = "copy_instancer.instance_all"
+class IC_OT_instance_all(bpy.types.Operator):
+    bl_idname = "instance_checker.instance_all"
     bl_label = "Instance All"
     bl_description = "Instance every group in the list"
     bl_options = {"REGISTER", "UNDO"}
@@ -349,8 +349,8 @@ class CI_OT_instance_all(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class CI_OT_make_copies(_GroupIndexMixin, bpy.types.Operator):
-    bl_idname = "copy_instancer.make_copies"
+class IC_OT_make_copies(_GroupIndexMixin, bpy.types.Operator):
+    bl_idname = "instance_checker.make_copies"
     bl_label = "Make Copies"
     bl_description = ("Give each object its own copy of the mesh (un-instance). "
                       "Modifiers and materials are kept")
@@ -381,8 +381,8 @@ class CI_OT_make_copies(_GroupIndexMixin, bpy.types.Operator):
         return {"FINISHED"}
 
 
-class CI_OT_report(bpy.types.Operator):
-    bl_idname = "copy_instancer.report"
+class IC_OT_report(bpy.types.Operator):
+    bl_idname = "instance_checker.report"
     bl_label = "Print Report"
     bl_description = "Print a memory report of all groups to the system console"
 
@@ -403,8 +403,8 @@ class CI_OT_report(bpy.types.Operator):
         return {"FINISHED"}
 
 
-classes = (CI_OT_scan, CI_OT_select_group, CI_OT_instance_group,
-           CI_OT_instance_all, CI_OT_make_copies, CI_OT_report)
+classes = (IC_OT_scan, IC_OT_select_group, IC_OT_instance_group,
+           IC_OT_instance_all, IC_OT_make_copies, IC_OT_report)
 
 
 def register():

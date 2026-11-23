@@ -1,16 +1,16 @@
-# Copy Instancer (Blender 4.2+ / 5.x extension)
+# Instance Checker (Blender 4.2+ / 5.x extension)
 
 Finds mesh objects that are copies of each other, converts them to **linked mesh data**
 (Alt+D style instances) and back, and shows how much memory instancing saves.
 Each object keeps its own **modifiers**, **materials** and **transform**.
 
 ## Install
-1. Build the zip (or use `dist/copy_instancer-1.0.0.zip`):
+1. Build the zip (or use `dist/instance_checker-1.0.0.zip`):
    ```bash
-   /Applications/Blender.app/Contents/MacOS/Blender --command extension build --source-dir copy_instancer --output-dir dist
+   /Applications/Blender.app/Contents/MacOS/Blender --command extension build --source-dir instance_checker --output-dir dist
    ```
 2. Blender → Edit → Preferences → Get Extensions → ⌄ menu → *Install from Disk…* → pick the zip.
-3. 3D Viewport → sidebar (N) → **Instancer** tab.
+3. 3D Viewport → sidebar (N) → **Instances** tab.
 
 ## How copies are detected
 - **Topology**: same vertices/edges/faces/corners in the same order (hashed, fast).
@@ -42,9 +42,9 @@ Per group: objects, unique meshes, verts/faces, estimated mesh size and the savi
 ## Scripting / Blender MCP
 ```python
 import bpy
-bpy.ops.copy_instancer.scan()
-bpy.ops.copy_instancer.instance_all()
-s = bpy.context.scene.copy_instancer
+bpy.ops.instance_checker.scan()
+bpy.ops.instance_checker.instance_all()
+s = bpy.context.scene.instance_checker
 print(s.last_message, [(g.name, len(g.members), g.status) for g in s.groups])
 ```
 `.mcp.json` registers the Blender MCP server for this project (the BlenderMCP addon must be

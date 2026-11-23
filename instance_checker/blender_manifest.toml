@@ -1,0 +1,20 @@
+schema_version = "1.0.0"
+
+id = "instance_checker"
+version = "1.0.0"
+name = "Instance Checker"
+tagline = "Find mesh copies and turn them into linked instances and back"
+maintainer = "Matteo Fontana"
+type = "add-on"
+website = "https://github.com/mttfntn/instance-checker-blender"
+tags = ["Mesh", "Object"]
+
+# Supported: Blender 5.3.x only (max is exclusive).
+blender_version_min = "5.3.0"
+blender_version_max = "5.4.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+copyright = ["2026 Matteo Fontana"]
+
+[build]
+paths_exclude_pattern = ["__pycache__/", "*.pyc", "/.*"]

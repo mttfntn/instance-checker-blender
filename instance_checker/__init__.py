@@ -1,4 +1,4 @@
-"""Copy Instancer: find duplicated meshes, turn them into linked instances and back."""
+"""Instance Checker: find duplicated meshes, turn them into linked instances and back."""
 
 from . import operators, properties, ui
 

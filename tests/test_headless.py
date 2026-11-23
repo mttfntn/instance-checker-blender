@@ -1,4 +1,4 @@
-"""Headless test for Copy Instancer.
+"""Headless test for Instance Checker.
 
 Run:
   /Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup \
@@ -15,8 +15,8 @@ from mathutils import Matrix
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-import copy_instancer  # noqa: E402
-from copy_instancer import operators  # noqa: E402
+import instance_checker  # noqa: E402
+from instance_checker import operators  # noqa: E402
 
 FAILS = []
 
@@ -47,7 +47,7 @@ def new_obj(name, mesh, location=(0, 0, 0)):
 
 def build_scene():
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    copy_instancer.register()
+    instance_checker.register()
     sc = bpy.context.scene
 
     bpy.ops.mesh.primitive_cube_add()
@@ -111,7 +111,7 @@ def build_scene():
 
 def main():
     sc = build_scene()
-    s = sc.copy_instancer
+    s = sc.instance_checker
     names = ["A", "B", "C", "D", "E", "F", "G"]
     ob = bpy.data.objects
     before = {n: world_eval(ob[n]) for n in names}
@@ -120,7 +120,7 @@ def main():
     mat_before = {n: [sl.material for sl in ob[n].material_slots] for n in names}
 
     print("\n== scan")
-    bpy.ops.copy_instancer.scan()
+    bpy.ops.instance_checker.scan()
     print(" ", s.last_message)
     groups = {frozenset(m.obj.name for m in g.members): g for g in s.groups}
     for k, g in groups.items():
@@ -133,10 +133,10 @@ def main():
     check(s.skipped == 2, f"shape-key objects skipped ({s.skipped})")
     check(s.total_saved > 0, "positive potential saving")
 
-    bpy.ops.copy_instancer.report()
+    bpy.ops.instance_checker.report()
 
     print("\n== instance all")
-    bpy.ops.copy_instancer.instance_all()
+    bpy.ops.instance_checker.instance_all()
     print(" ", s.last_message)
     bpy.context.view_layer.update()
     check(ob["A"].data == ob["B"].data == ob["C"].data == ob["D"].data, "A,B,C,D share one mesh")
@@ -156,7 +156,7 @@ def main():
         o.select_set(False)
     for n in ("A", "B", "C"):
         ob[n].select_set(True)
-    bpy.ops.copy_instancer.make_copies(target="SELECTED")
+    bpy.ops.instance_checker.make_copies(target="SELECTED")
     meshes = {ob[n].data.name for n in ("A", "B", "C", "D")}
     check(len(meshes) == 4, f"A,B,C,D now have unique meshes ({meshes})")
     for n in ("A", "B", "C", "D"):
@@ -165,9 +165,9 @@ def main():
         check(np.allclose(before[n], after, atol=1e-4), f"{n} geometry unchanged after copy")
 
     print("\n== undo-safe re-instance")
-    bpy.ops.copy_instancer.scan()
+    bpy.ops.instance_checker.scan()
     n_meshes = len(bpy.data.meshes)
-    bpy.ops.copy_instancer.instance_all()
+    bpy.ops.instance_checker.instance_all()
     check(ob["A"].data == ob["B"].data, "re-instanced after making copies")
     check(len(bpy.data.meshes) == n_meshes - 3,
           f"replaced meshes removed ({n_meshes} -> {len(bpy.data.meshes)})")
@@ -176,7 +176,7 @@ def main():
     print("\n== make copies on a whole group keeps the original on one object")
     idx = next(i for i, g in enumerate(s.groups) if g.reference == ob["A"].data)
     shared = ob["A"].data
-    bpy.ops.copy_instancer.make_copies(target="GROUP", index=idx)
+    bpy.ops.instance_checker.make_copies(target="GROUP", index=idx)
     check(s.last_message == "Made 3 independent copies", s.last_message)
     check(sum(1 for n in ("A", "B", "C", "D") if ob[n].data == shared) == 1,
           "exactly one object keeps the original mesh")

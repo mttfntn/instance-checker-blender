@@ -13,7 +13,7 @@ def _local(collection, name):
     return item if item is not None else (collection.get(name) if name else None)
 
 
-class CI_Member(bpy.types.PropertyGroup):
+class IC_Member(bpy.types.PropertyGroup):
     obj_name: StringProperty()
     mesh_name: StringProperty()
 
@@ -30,14 +30,14 @@ class CI_Member(bpy.types.PropertyGroup):
     needs_transform: BoolProperty()
 
 
-class CI_Group(bpy.types.PropertyGroup):
+class IC_Group(bpy.types.PropertyGroup):
     reference_name: StringProperty()
 
     @property
     def reference(self):
         return _local(bpy.data.meshes, self.reference_name)
 
-    members: CollectionProperty(type=CI_Member)
+    members: CollectionProperty(type=IC_Member)
     unique_meshes: IntProperty()
     verts: IntProperty()
     faces: IntProperty()
@@ -51,7 +51,7 @@ class CI_Group(bpy.types.PropertyGroup):
     transformed: IntProperty(description="Members that need a transform change")
 
 
-class CI_Settings(bpy.types.PropertyGroup):
+class IC_Settings(bpy.types.PropertyGroup):
     scope: EnumProperty(
         name="Scope",
         items=[("SELECTED", "Selected", "Scan only selected objects"),
@@ -81,23 +81,23 @@ class CI_Settings(bpy.types.PropertyGroup):
         name="Remove Unused Meshes", default=True,
         description="Delete mesh data that has no users after instancing",
     )
-    groups: CollectionProperty(type=CI_Group)
+    groups: CollectionProperty(type=IC_Group)
     active_index: IntProperty()
     skipped: IntProperty()
     total_saved: FloatProperty()
     last_message: StringProperty()
 
 
-classes = (CI_Member, CI_Group, CI_Settings)
+classes = (IC_Member, IC_Group, IC_Settings)
 
 
 def register():
     for c in classes:
         bpy.utils.register_class(c)
-    bpy.types.Scene.copy_instancer = PointerProperty(type=CI_Settings)
+    bpy.types.Scene.instance_checker = PointerProperty(type=IC_Settings)
 
 
 def unregister():
-    del bpy.types.Scene.copy_instancer
+    del bpy.types.Scene.instance_checker
     for c in reversed(classes):
         bpy.utils.unregister_class(c)
