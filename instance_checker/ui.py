@@ -58,7 +58,7 @@ class IC_PT_panel(bpy.types.Panel):
         layout.operator("instance_checker.make_copies", text="Make Selected Unique",
                         icon="UNLINKED").target = "SELECTED"
 
-        # Optimization report
+        # Memory report for the active group, then the total
         box = layout.box()
         box.label(text="Memory Report", icon="MEMORY")
         if 0 <= s.active_index < len(s.groups):

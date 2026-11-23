@@ -61,7 +61,8 @@ class IC_Settings(bpy.types.PropertyGroup):
     tolerance: FloatProperty(
         name="Tolerance", default=1e-4, min=0.0, max=0.01,
         precision=6, step=0.001,
-        description="Maximum vertex distance (local units) for two shapes to count as equal",
+        description=("Largest difference allowed in any vertex coordinate (local units), and in "
+                     "UVs and other float data, for two meshes to count as copies"),
     )
     match_transforms: BoolProperty(
         name="Match Applied Transforms", default=True,
@@ -74,8 +75,9 @@ class IC_Settings(bpy.types.PropertyGroup):
     )
     verify: BoolProperty(
         name="Verify Result", default=True,
-        description=("After instancing, compare the evaluated (modifiers applied) geometry with "
-                     "the original and revert any object whose result changed"),
+        description=("After instancing, compare each object's evaluated geometry (modifiers "
+                     "applied) with the original and revert it if any vertex moved by more than "
+                     "10 times the Tolerance"),
     )
     remove_orphans: BoolProperty(
         name="Remove Unused Meshes", default=True,
