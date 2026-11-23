@@ -1,0 +1,129 @@
+# Tests, build and installed-package check on Linux, Windows and macOS for every
+# push and pull request. A pushed vX.Y.Z tag also publishes a GitHub release,
+# after the tests passed on all three platforms.
+# No workflow artifacts are uploaded: the account's artifact storage quota is
+# shared with other repos. The release job rebuilds the zip; the build is
+# reproducible (tools/build.py --check), so it is the same zip that was tested.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Cache Blender
+        uses: actions/cache@v5
+        with:
+          path: blender
+          key: blender-5.3.0-${{ runner.os }}-${{ hashFiles('.github/scripts/get_blender.py') }}
+
+      # Retries, official mirrors and a pinned SHA-256; sets $BLENDER.
+      - name: Get Blender 5.3
+        run: python .github/scripts/get_blender.py blender
+
+      - name: Install runtime libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 \
+            libegl1 libxkbcommon0 libsm6 libice6
+
+      - name: Blender version
+        run: '"$BLENDER" -b --factory-startup --version'
+
+      - name: Supported versions agree everywhere
+        run: python tests/check_versions.py
+
+      - name: Tests
+        run: python tests/run.py --blender "$BLENDER"
+
+      - name: Build (and check it is reproducible)
+        run: python tools/build.py --blender "$BLENDER" --check
+
+      - name: Install the zip in a scratch profile and check it
+        run: python tests/check_installed_package.py dist/instance_checker-*.zip --blender "$BLENDER"
+
+  release:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      # actions/checkout fetches the commit, not the annotated tag object, so the
+      # tag message would come back empty. Fetch the tag itself.
+      - name: Fetch the tag
+        run: git fetch --force origin "+${GITHUB_REF}:${GITHUB_REF}"
+
+      - name: Check the tag matches the manifest version
+        run: |
+          ver=$(python3 -c "import tomllib; print(tomllib.load(open('instance_checker/blender_manifest.toml', 'rb'))['version'])")
+          if [ "v$ver" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match manifest version $ver"
+            exit 1
+          fi
+
+      - name: Cache Blender
+        uses: actions/cache@v5
+        with:
+          path: blender
+          key: blender-5.3.0-${{ runner.os }}-${{ hashFiles('.github/scripts/get_blender.py') }}
+
+      - name: Get Blender 5.3
+        run: python3 .github/scripts/get_blender.py blender
+
+      - name: Install runtime libraries
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 \
+            libegl1 libxkbcommon0 libsm6 libice6
+
+      - name: Build
+        run: python3 tools/build.py --blender "$BLENDER"
+
+      # Safe to re-run: if the release already exists, its zip and notes are replaced.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::Tag $GITHUB_REF_NAME has no message; create it with git tag -a"
+            exit 1
+          fi
+          cat notes.md
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "Release exists: replacing its zip and notes"
+            gh release upload "$GITHUB_REF_NAME" dist/instance_checker-*.zip --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" dist/instance_checker-*.zip \
+              --title "Instance Checker $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+          fi
